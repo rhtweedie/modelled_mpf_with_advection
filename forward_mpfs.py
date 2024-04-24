@@ -153,9 +153,9 @@ def main():
             mpfs_df = pd.concat([mpfs_df, new_mpfs])
 
         # save dataframe
-        mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD} days_spacing_{SPACING}.pkl')
-        lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD} days_spacing_{SPACING}.pkl')
-        lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD} days_spacing_{SPACING}.pkl')
+        mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
         print(f'Dataframes saved.')
 
 
