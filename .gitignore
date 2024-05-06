@@ -3,3 +3,4 @@ data/
 data.seaice.uni-bremen.de/
 .vscode/
 190930_driftforecast_MOSAiC_hands-on-forward.ipynb
+processed_results/
