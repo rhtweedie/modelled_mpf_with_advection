@@ -1,11 +1,16 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 
 def main():
-    YEAR = 2017
+    YEAR = 2019
     SPACING = 8
     DAYS_TO_FORWARD = 183
+
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print(f'Time started: {current_time}')
 
     sir_advected = pd.read_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/sir_from_{YEAR}0401_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
 
@@ -26,11 +31,13 @@ def main():
     np.save(fn, mean_sir)
     print(f'Data saved at {fn}')
 
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    print(f'Time finished: {current_time}')
 
 
 def format_date(year, month, day):
     return f"{year}-{month}-{day} 12:00:00"
-
 
 
 if __name__ == "__main__":

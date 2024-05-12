@@ -16,177 +16,199 @@ from scipy.interpolate import griddata
 
 def main():
 
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print(f'Time started: {current_time}')
+    years = [2010, 2011, 2020]
 
-    YEAR = 2018
-    START_DATE = f'{YEAR}-04-01 12:00:00'
-    SPACING = 8
-    DAYS_TO_FORWARD = 183
-    delta_t = 86400  # in seconds
+    for year in years:
 
-    # retrieve MPF coordinates
-    coord_fn = '/home/htweedie/melt_ponds/data/OLCI/olci/LongitudeLatitudeGrid-n12500-Arctic.h5'
-    coords = h5.File(coord_fn, 'r')
-    mpf_lon =  np.array(coords['Longitudes'])
-    mpf_lat = np.array(coords['Latitudes'])
-    x_mpf, y_mpf = WGS84toEASE2N(mpf_lon, mpf_lat)
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        print(f'Time started: {current_time}')
 
-    # retrieve MISR data and coordinates
-    fn = f'/home/ssureen/MISR_data_monthly/April {YEAR} Roughness.h5'
-    sigma, sigma_lon, sigma_lat, sigma_x, sigma_y = load_MISR(fn)
+        YEAR = year
+        START_DATE = f'{YEAR}-04-01 12:00:00'
+        SPACING = 8
+        DAYS_TO_FORWARD = 183
+        delta_t = 86400  # in seconds
 
-    # take an even subset of the data to reduce computational requirements
-    all_lats = sigma_lat[::SPACING, ::SPACING].ravel()
-    all_lons = sigma_lon[::SPACING, ::SPACING].ravel()
-    all_sigma = sigma[::SPACING, ::SPACING].ravel()
+        # retrieve MPF coordinates
+        coord_fn = '/home/htweedie/melt_ponds/data/OLCI/olci/LongitudeLatitudeGrid-n12500-Arctic.h5'
+        coords = h5.File(coord_fn, 'r')
+        mpf_lon =  np.array(coords['Longitudes'])
+        mpf_lat = np.array(coords['Latitudes'])
+        x_mpf, y_mpf = WGS84toEASE2N(mpf_lon, mpf_lat)
 
-    num_points = len(all_lons)
-    earliest_date = START_DATE
-    advect_start_date = START_DATE
-    dates = [advect_start_date]
+        # retrieve MISR data and coordinates
+        fn = f'/home/ssureen/MISR_data_monthly/April {YEAR} Roughness.h5'
+        sigma, sigma_lon, sigma_lat, sigma_x, sigma_y = load_MISR(fn)
 
-    # create dataframes in which lat, lon and mpf data will be stored
-    lons = np.zeros((1, num_points))*np.nan
-    lats = np.zeros((1, num_points))*np.nan
-    mpfs = np.zeros((1, num_points))*np.nan
-    sir = np.zeros((1, num_points))*np.nan
-    x = np.zeros((1, num_points))*np.nan
-    y = np.zeros((1, num_points))*np.nan
-    lats_df = pd.DataFrame(data=lats, index=dates)
-    lons_df = pd.DataFrame(data=lons, index=dates)
-    mpfs_df = pd.DataFrame(data=mpfs, index=dates)
-    sir_df = pd.DataFrame(data=sir, index=dates)
-    x_df = pd.DataFrame(data=x, index=dates)
-    y_df = pd.DataFrame(data=y, index=dates)
+        # take an even subset of the data to reduce computational requirements
+        all_lats = sigma_lat[::SPACING, ::SPACING].ravel()
+        all_lons = sigma_lon[::SPACING, ::SPACING].ravel()
+        all_sigma = sigma[::SPACING, ::SPACING].ravel()
 
-    lats_df.loc[advect_start_date] = all_lats # np.arange(90.,110.,1.)
-    lons_df.loc[advect_start_date] = all_lons # np.arange(90.,110.,1.)
-    sir_df.loc[advect_start_date] = all_sigma
+        num_points = len(all_lons)
+        earliest_date = START_DATE
+        advect_start_date = START_DATE
+        dates = [advect_start_date]
 
-    all_x, all_y = WGS84toEASE2N(all_lons, all_lats)
-    x_df.loc[advect_start_date] = all_x
-    y_df.loc[advect_start_date] = all_y
+        # create dataframes in which lat, lon and mpf data will be stored
+        lons = np.zeros((1, num_points))*np.nan
+        lats = np.zeros((1, num_points))*np.nan
+        mpfs = np.zeros((1, num_points))*np.nan
+        sir = np.zeros((1, num_points))*np.nan
+        x = np.zeros((1, num_points))*np.nan
+        y = np.zeros((1, num_points))*np.nan
+        lats_df = pd.DataFrame(data=lats, index=dates)
+        lons_df = pd.DataFrame(data=lons, index=dates)
+        mpfs_df = pd.DataFrame(data=mpfs, index=dates)
+        sir_df = pd.DataFrame(data=sir, index=dates)
+        x_df = pd.DataFrame(data=x, index=dates)
+        y_df = pd.DataFrame(data=y, index=dates)
 
-    # format the starting date, then load MPF data for that day
-    date = datetime.strptime(advect_start_date, "%Y-%m-%d %H:%M:%S")
-    start_YYYYMMDD = date.strftime("%Y")+date.strftime("%m")+date.strftime("%d")
-    try:
-        if YEAR >= 2017 and YEAR <= 2023:
-            fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
-        elif YEAR >= 2002 and YEAR <= 2011:
-            fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
-        ds = xr.open_dataset(fn)
-        mpf = ds['mpf']
-    except Exception as e:
-        mpf = np.zeros(num_points)
-        mpf[:] = np.nan
-        print(f'Data could not be retrieved for advection start date, {date}: {e}')
+        lats_df.loc[advect_start_date] = all_lats # np.arange(90.,110.,1.)
+        lons_df.loc[advect_start_date] = all_lons # np.arange(90.,110.,1.)
+        sir_df.loc[advect_start_date] = all_sigma
 
-    # find all MPFs within each sigma grid cell
-    tree_mpf = KDTree(list(zip(x_mpf.ravel(), y_mpf.ravel())))
-    tree_sir = KDTree(list(zip(all_x.ravel(), all_y.ravel())))
-    x_sigma, y_sigma = WGS84toEASE2N(all_lons, all_lats)
-    max_radius = 10000
-    indices_within_grid = tree_mpf.query_ball_point(list(zip(x_sigma, y_sigma)), r = max_radius)
+        all_x, all_y = WGS84toEASE2N(all_lons, all_lats)
+        x_df.loc[advect_start_date] = all_x
+        y_df.loc[advect_start_date] = all_y
 
-    # calculate the mean MPF within the radius for each sigma grid cell, and add to df
-    if len(indices_within_grid) > 0:
-        mean_mpf = np.zeros(num_points)
-        for i in range(num_points):
-            mean_mpf[i] = np.mean(np.asarray(mpf).ravel()[indices_within_grid[i]])
-    mean_mpf[mean_mpf==0] = np.nan
-    mpfs_df.loc[advect_start_date] = np.asarray(mean_mpf).ravel()
-
-    # initialise 'Bouys' for all points to be advected
-    points = Buoys(lons_df.loc[advect_start_date], lats_df.loc[advect_start_date], advect_start_date, earliest_date)
-
-    # advect all points by the set number of days
-    forwarded_mpfs = []
-    for i in np.arange(1, DAYS_TO_FORWARD+1):
-        print(f'This is year {YEAR}, day #{i} of {DAYS_TO_FORWARD}')
-
-        Ufield, Vfield, lon_start, lat_start = loaddate_ofOSISAF(points.getdate(), hemisphere='nh')
-        U,V = find_UV_atbuoy_pos(lon_start, lat_start, Ufield.flatten(),Vfield.flatten(), points)
-
-        # don't advect buoys when there is no ice
-        fixed=np.logical_or(U.mask, V.mask)
-        U[fixed]=0.
-        V[fixed]=0.
-
-        LON,LAT = points.trajectory(U, V, delta_t=delta_t) # U,V in m/s, delta_t in seconds
-
-        # create dataframe with new lats and lons
-        new_lons = pd.DataFrame(LON.rename(points.getdate())).T
-        new_lats = pd.DataFrame(LAT.rename(points.getdate())).T
-        new_x, new_y = WGS84toEASE2N(LON, LAT)
-        date = [points.getdate()]
-        new_x_df = pd.DataFrame(new_x, columns=date).T
-        new_y_df = pd.DataFrame(new_y, columns=date).T  
-
-        # find new sir
-        _, indices_within_grid_sir = tree_sir.query(list(zip(new_x.ravel(), new_y.ravel())), k=1)
-        new_sir = np.zeros(num_points)
-        for i in range(num_points):
-            new_sir[i] = all_sigma[indices_within_grid_sir[i]]
-        # convert 0s to nans and append to list
-        new_sir[new_sir==0] = np.nan
-        new_sir_df = pd.DataFrame(new_sir, columns=date).T  
-
-        # add dataframe with new lats and lons to original one
-        lons_df = pd.concat([lons_df, new_lons])
-        lats_df = pd.concat([lats_df, new_lats])
-        x_df = pd.concat([x_df, new_x_df])
-        y_df = pd.concat([y_df, new_y_df])
-        sir_df = pd.concat([sir_df, new_sir_df])
-        
-        x_sigma, y_sigma = WGS84toEASE2N(new_lons, new_lats)
-
-        # get and format current datestring
-        date = datetime.strptime(points.getdate(), "%Y-%m-%d %H:%M:%S")
-        YYYYMMDD = date.strftime("%Y")+date.strftime("%m")+date.strftime("%d")
-
-        # retrieve MPF data for this day
+        # format the starting date, then load MPF data for that day
+        date = datetime.strptime(advect_start_date, "%Y-%m-%d %H:%M:%S")
+        start_YYYYMMDD = date.strftime("%Y")+date.strftime("%m")+date.strftime("%d")
         try:
             if YEAR >= 2017 and YEAR <= 2023:
-                fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
+                fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
             elif YEAR >= 2002 and YEAR <= 2011:
-                fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
+                fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
             ds = xr.open_dataset(fn)
             mpf = ds['mpf']
         except Exception as e:
-            mpf = np.zeros(896*608)
+            mpf = np.zeros(num_points)
             mpf[:] = np.nan
-            print(f'Data could not be retrieved for {date}: {e}')
+            print(f'Data could not be retrieved for advection start date, {date}: {e}')
 
-        # Query the tree_mpf to find all points within final_lons and final_lats grids
+        # find all MPFs within each sigma grid cell
+        tree_mpf = KDTree(list(zip(x_mpf.ravel(), y_mpf.ravel())))
+        tree_sir = KDTree(list(zip(all_x.ravel(), all_y.ravel())))
+        x_sigma, y_sigma = WGS84toEASE2N(all_lons, all_lats)
         max_radius = 10000
-        indices_within_grid = tree_mpf.query_ball_point(list(zip(x_sigma.ravel(), y_sigma.ravel())), r = max_radius)
+        indices_within_grid = tree_mpf.query_ball_point(list(zip(x_sigma, y_sigma)), r = max_radius)
 
-        # calculate the mean MPF within the radius for each sigma grid point
+        # calculate the mean MPF within the radius for each sigma grid cell, and add to df
         if len(indices_within_grid) > 0:
             mean_mpf = np.zeros(num_points)
             for i in range(num_points):
                 mean_mpf[i] = np.mean(np.asarray(mpf).ravel()[indices_within_grid[i]])
-
-        # convert 0s to nans and append to list
         mean_mpf[mean_mpf==0] = np.nan
-        forwarded_mpfs.append(mean_mpf)
+        mpfs_df.loc[advect_start_date] = np.asarray(mean_mpf).ravel()
 
-        ind = format_date(date.strftime("%Y"), date.strftime("%m"), date.strftime("%d"))
-        new_mpfs = pd.DataFrame(data=np.asarray(mean_mpf).reshape(1, len(np.asarray(mean_mpf).ravel())), index=[ind])
-        mpfs_df = pd.concat([mpfs_df, new_mpfs])
+        # initialise 'Bouys' for all points to be advected
+        points = Buoys(lons_df.loc[advect_start_date], lats_df.loc[advect_start_date], advect_start_date, earliest_date)
 
-    # save dataframe
-    #mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-    #lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-    #lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-    sir_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/sir_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-    x_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/x_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-    y_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/y_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        # advect all points by the set number of days
+        forwarded_mpfs = []
+        for i in np.arange(1, DAYS_TO_FORWARD+1):
+            print(f'This is year {YEAR}, day #{i} of {DAYS_TO_FORWARD}')
 
-    print(f'Dataframes saved.')
+            Ufield, Vfield, lon_start, lat_start = loaddate_ofOSISAF(points.getdate(), hemisphere='nh')
+            U,V = find_UV_atbuoy_pos(lon_start, lat_start, Ufield.flatten(),Vfield.flatten(), points)
+
+            # don't advect buoys when there is no ice
+            fixed=np.logical_or(U.mask, V.mask)
+            U[fixed]=0.
+            V[fixed]=0.
+
+            LON,LAT = points.trajectory(U, V, delta_t=delta_t) # U,V in m/s, delta_t in seconds
+
+            # create dataframe with new lats and lons
+            new_lons = pd.DataFrame(LON.rename(points.getdate())).T
+            new_lats = pd.DataFrame(LAT.rename(points.getdate())).T
+            new_x, new_y = WGS84toEASE2N(LON, LAT)
+            date = [points.getdate()]
+            new_x_df = pd.DataFrame(new_x, columns=date).T
+            new_y_df = pd.DataFrame(new_y, columns=date).T  
+
+            # find new sir
+            _, indices_within_grid_sir = tree_sir.query(list(zip(new_x.ravel(), new_y.ravel())), k=1)
+            new_sir = np.zeros(num_points)
+            for i in range(num_points):
+                new_sir[i] = all_sigma[indices_within_grid_sir[i]]
+            # convert 0s to nans and append to list
+            new_sir[new_sir==0] = np.nan
+            new_sir_df = pd.DataFrame(new_sir, columns=date).T  
+
+            # add dataframe with new lats and lons to original one
+            lons_df = pd.concat([lons_df, new_lons])
+            lats_df = pd.concat([lats_df, new_lats])
+            x_df = pd.concat([x_df, new_x_df])
+            y_df = pd.concat([y_df, new_y_df])
+            sir_df = pd.concat([sir_df, new_sir_df])
+            
+            x_sigma, y_sigma = WGS84toEASE2N(new_lons, new_lats)
+
+            # get and format current datestring
+            date = datetime.strptime(points.getdate(), "%Y-%m-%d %H:%M:%S")
+            YYYYMMDD = date.strftime("%Y")+date.strftime("%m")+date.strftime("%d")
+
+            # retrieve MPF data for this day
+            try:
+                if YEAR >= 2017 and YEAR <= 2023:
+                    fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
+                elif YEAR >= 2002 and YEAR <= 2011:
+                    fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
+                ds = xr.open_dataset(fn)
+                mpf = ds['mpf']
+            except Exception as e:
+                mpf = np.zeros(896*608)
+                mpf[:] = np.nan
+                print(f'Data could not be retrieved for {date}: {e}')
+
+            # Query the tree_mpf to find all points within final_lons and final_lats grids
+            max_radius = 10000
+            indices_within_grid = tree_mpf.query_ball_point(list(zip(x_sigma.ravel(), y_sigma.ravel())), r = max_radius)
+
+            # calculate the mean MPF within the radius for each sigma grid point
+            if len(indices_within_grid) > 0:
+                mean_mpf = np.zeros(num_points)
+                for i in range(num_points):
+                    mean_mpf[i] = np.mean(np.asarray(mpf).ravel()[indices_within_grid[i]])
+
+            # convert 0s to nans and append to list
+            mean_mpf[mean_mpf==0] = np.nan
+            forwarded_mpfs.append(mean_mpf)
+
+            ind = format_date(date.strftime("%Y"), date.strftime("%m"), date.strftime("%d"))
+            new_mpfs = pd.DataFrame(data=np.asarray(mean_mpf).reshape(1, len(np.asarray(mean_mpf).ravel())), index=[ind])
+            mpfs_df = pd.concat([mpfs_df, new_mpfs])
+
+        # save dataframe
+        #mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        #lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        #lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        sir_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/sir_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        x_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/x_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        y_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/y_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+
+        print(f'Dataframes saved.')
+
+        date_from = format_date(YEAR, '04', '01')
+        date_to = format_date(YEAR, '08', '31')
+
+        subset_sir = sir_df.loc[date_from:date_to]
+        num_points = subset_sir.shape[1]
+
+        print(f'--- Calculating mean SIR for {YEAR} ---')
+        mean_sir = np.zeros(num_points)
+        for i in range(num_points):
+            if i % 10000 == 0:
+                print(f'Processing grid cell {i} of {num_points}')
+            timeseries = np.asarray(subset_sir[i])
+            mean_sir[i] = np.nanmean(timeseries)
+
+        fn = f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mean_summer_sir_{YEAR}'
+        np.save(fn, mean_sir)
+        print(f'Data saved at {fn}')
 
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
