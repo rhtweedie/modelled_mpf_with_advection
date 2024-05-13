@@ -1,8 +1,18 @@
+'''
+This script forwards sea-ice floes for defined years from 1st April to 30th September using the low
+resolution sea ice drift product of the EUMETSAT Ocean and Sea Ice Satellite Application Facility
+(OSI SAF, https://osi-saf.eumetsat.int). Adapted and built upon from code shared by Michel Tsamados,
+adapted from earlier code by Thomas Rackow.
+
+Every 8th point is forwarded to reduce computational requirements and simplify comparisons with melt-pond
+fraction.
+
+Note: this scipt is inefficient and takes a long time to run, but it gets the job done.
+'''
+
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
-from netCDF4 import Dataset, MFDataset
+from netCDF4 import Dataset
 import xarray as xr
 from scipy import spatial
 from datetime import datetime
@@ -16,16 +26,11 @@ from scipy.interpolate import griddata
 
 def main():
 
-    years = [2010, 2011, 2020]
+    years = [2010, 2011, 2017, 2018, 2019, 2020]
 
     for year in years:
 
-        now = datetime.now()
-        current_time = now.strftime("%H:%M:%S")
-        print(f'Time started: {current_time}')
-
-        YEAR = year
-        START_DATE = f'{YEAR}-04-01 12:00:00'
+        START_DATE = f'{year}-04-01 12:00:00'
         SPACING = 8
         DAYS_TO_FORWARD = 183
         delta_t = 86400  # in seconds
@@ -38,8 +43,8 @@ def main():
         x_mpf, y_mpf = WGS84toEASE2N(mpf_lon, mpf_lat)
 
         # retrieve MISR data and coordinates
-        fn = f'/home/ssureen/MISR_data_monthly/April {YEAR} Roughness.h5'
-        sigma, sigma_lon, sigma_lat, sigma_x, sigma_y = load_MISR(fn)
+        fn = f'/home/ssureen/MISR_data_monthly/April {year} Roughness.h5'
+        sigma, sigma_lon, sigma_lat, _, _ = load_MISR(fn)
 
         # take an even subset of the data to reduce computational requirements
         all_lats = sigma_lat[::SPACING, ::SPACING].ravel()
@@ -51,7 +56,7 @@ def main():
         advect_start_date = START_DATE
         dates = [advect_start_date]
 
-        # create dataframes in which lat, lon and mpf data will be stored
+        # create dataframes in which lat, lon and mpf and sir data will be stored
         lons = np.zeros((1, num_points))*np.nan
         lats = np.zeros((1, num_points))*np.nan
         mpfs = np.zeros((1, num_points))*np.nan
@@ -77,16 +82,16 @@ def main():
         date = datetime.strptime(advect_start_date, "%Y-%m-%d %H:%M:%S")
         start_YYYYMMDD = date.strftime("%Y")+date.strftime("%m")+date.strftime("%d")
         try:
-            if YEAR >= 2017 and YEAR <= 2023:
-                fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
-            elif YEAR >= 2002 and YEAR <= 2011:
-                fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{start_YYYYMMDD}.nc'
+            if year >= 2017 and year <= 2023:
+                fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{year}/data/mpd1_{start_YYYYMMDD}.nc'
+            elif year >= 2002 and year <= 2011:
+                fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{year}/data/mpd1_{start_YYYYMMDD}.nc'
             ds = xr.open_dataset(fn)
             mpf = ds['mpf']
         except Exception as e:
             mpf = np.zeros(num_points)
             mpf[:] = np.nan
-            print(f'Data could not be retrieved for advection start date, {date}: {e}')
+            print(f'MPF data could not be retrieved for advection start date, {date}: {e}')
 
         # find all MPFs within each sigma grid cell
         tree_mpf = KDTree(list(zip(x_mpf.ravel(), y_mpf.ravel())))
@@ -109,7 +114,7 @@ def main():
         # advect all points by the set number of days
         forwarded_mpfs = []
         for i in np.arange(1, DAYS_TO_FORWARD+1):
-            print(f'This is year {YEAR}, day #{i} of {DAYS_TO_FORWARD}')
+            print(f'This is year {year}, day #{i} of {DAYS_TO_FORWARD}')
 
             Ufield, Vfield, lon_start, lat_start = loaddate_ofOSISAF(points.getdate(), hemisphere='nh')
             U,V = find_UV_atbuoy_pos(lon_start, lat_start, Ufield.flatten(),Vfield.flatten(), points)
@@ -138,7 +143,7 @@ def main():
             new_sir[new_sir==0] = np.nan
             new_sir_df = pd.DataFrame(new_sir, columns=date).T  
 
-            # add dataframe with new lats and lons to original one
+            # add dataframe with new data to original ones
             lons_df = pd.concat([lons_df, new_lons])
             lats_df = pd.concat([lats_df, new_lats])
             x_df = pd.concat([x_df, new_x_df])
@@ -153,19 +158,19 @@ def main():
 
             # retrieve MPF data for this day
             try:
-                if YEAR >= 2017 and YEAR <= 2023:
-                    fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
-                elif YEAR >= 2002 and YEAR <= 2011:
-                    fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{YEAR}/data/mpd1_{YYYYMMDD}.nc'
+                if year >= 2017 and year <= 2023:
+                    fn = f'/home/htweedie/melt_ponds/data/OLCI/olci/{year}/data/mpd1_{YYYYMMDD}.nc'
+                elif year >= 2002 and year <= 2011:
+                    fn = f'/home/htweedie/melt_ponds/data/MERIS/mecosi/{year}/data/mpd1_{YYYYMMDD}.nc'
                 ds = xr.open_dataset(fn)
                 mpf = ds['mpf']
             except Exception as e:
                 mpf = np.zeros(896*608)
                 mpf[:] = np.nan
-                print(f'Data could not be retrieved for {date}: {e}')
+                print(f'MPF data could not be retrieved for {date}: {e}')
 
             # Query the tree_mpf to find all points within final_lons and final_lats grids
-            max_radius = 10000
+            max_radius = 10000 # radius of 10km
             indices_within_grid = tree_mpf.query_ball_point(list(zip(x_sigma.ravel(), y_sigma.ravel())), r = max_radius)
 
             # calculate the mean MPF within the radius for each sigma grid point
@@ -182,23 +187,26 @@ def main():
             new_mpfs = pd.DataFrame(data=np.asarray(mean_mpf).reshape(1, len(np.asarray(mean_mpf).ravel())), index=[ind])
             mpfs_df = pd.concat([mpfs_df, new_mpfs])
 
-        # save dataframe
-        #mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-        #lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
-        #lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        # save dataframes
+        mpfs_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mpf_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        lons_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lon_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
+        lats_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/lat_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
         sir_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/sir_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
         x_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/x_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
         y_df.to_pickle(f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/y_from_{start_YYYYMMDD}_{DAYS_TO_FORWARD}_days_spacing_{SPACING}.pkl')
 
         print(f'Dataframes saved.')
 
-        date_from = format_date(YEAR, '04', '01')
-        date_to = format_date(YEAR, '08', '31')
+        # ----- calculate mean SIR for current year -----
 
+        # set dates between which mean will be calculated and subset dataframe accordingly
+        date_from = format_date(year, '04', '01')
+        date_to = format_date(year, '08', '31')
         subset_sir = sir_df.loc[date_from:date_to]
         num_points = subset_sir.shape[1]
 
-        print(f'--- Calculating mean SIR for {YEAR} ---')
+        # calculate mean of each column in subset dataframe
+        print(f'--- Calculating mean SIR for {year} ---')
         mean_sir = np.zeros(num_points)
         for i in range(num_points):
             if i % 10000 == 0:
@@ -206,13 +214,10 @@ def main():
             timeseries = np.asarray(subset_sir[i])
             mean_sir[i] = np.nanmean(timeseries)
 
-        fn = f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mean_summer_sir_{YEAR}'
+        # save mean SIR
+        fn = f'/home/htweedie/melt_ponds/data/forwarded_mpfs/testing/mean_summer_sir_{year}'
         np.save(fn, mean_sir)
         print(f'Data saved at {fn}')
-
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print(f'Time finished: {current_time}')
 
 
 
@@ -269,38 +274,16 @@ class Buoys:
         self.old_u=new_u
         self.old_v=new_v
         
-        # set positions to NaN before the buoy is supposed to move
-        #idx=getindices_beforestart(self.getdate(), self.startdates)
-        #lon_deg[idx] = np.nan
-        #lat_deg[idx] = np.nan
-        #self.lon[idx] = self.initlon[idx]
-        #self.lat[idx] = self.initlat[idx]
-        #self.old_u[idx]=0.
-        #self.old_v[idx]=0.
-        
         # update time stamp
         self.date = self.date + timedelta(seconds=delta_t)
 
         return lon_deg, lat_deg
 
 
-
-# a useful function we'll need
 def length_of_latitude_circle(lat=85.):
     r_earth=6.3675*10**6 # radius of Earth in [m]
     rad=np.pi/180.0 # radiant <-> degree  
     return 2*np.pi*r_earth*np.cos(lat*rad) / 1000. # km
-
-
-# find the buoys that are not to be advected yet (current date < start date)
-def getindices_beforestart(currentdate, startdates):
-    indices=np.zeros(np.shape(startdates),dtype='bool')
-    for i,val in enumerate(startdates):
-        # don't advect yet
-        if currentdate < startdates[i]:
-            indices[i]=True
-            
-    return indices
 
 
 # load OSISAF data for Northern Hemisphere at a certain date
@@ -393,18 +376,9 @@ def WGS84toEASE2N(lon, lat):
     Returns:
         (x, y): the corresponding EASE2N x and y coordinates
     '''
-
     proj_EASE2N = pyproj.Proj("+proj=laea +lon_0=0 +lat_0=90 +x_0=0 +y_0=0 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
     proj_WGS84 = pyproj.Proj("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
     return pyproj.transform(proj_WGS84, proj_EASE2N, lon, lat)
-
-
-def EASE2NtoWGS84(x, y):
-    EASE2 = "+proj=laea +lon_0=0 +lat_0=90 +x_0=0 +y_0=0 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
-    WGS84 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-    transformer = pyproj.Transformer.from_crs(EASE2, WGS84)
-    lon, lat = transformer.transform(x, y)
-    return lon, lat
 
 
 def load_MISR(MISR_path):
@@ -433,27 +407,6 @@ def load_MISR(MISR_path):
     file.close()
 
     return data, lon, lat, x, y
-
-
-def predict_mpf(SIR, R0, l, tau, hnet):
-    '''
-    Predicts meltpond fraction given an input SIR, based on the model by Landy et al, 2015.
-    '''
-    R = R0 * np.exp(-l * SIR) + tau
-    return (1 - np.exp(-R * hnet))
-
-
-def interpolate_to_MISR(x_in, y_in, data, x_out, y_out):
-    '''
-    Interpolates data of the shape x_in, y_in to the shape of x_out, y_out.
-    
-    Params:
-        data: the data to be interpolated
-        x_in, y_in: the shape of the data to be interpolated
-        
-    Returns:
-        x_out, y_out: the shape to which the data will be interpolated'''
-    return griddata((x_in.ravel(), y_in.ravel()), data.ravel( ), (x_out.ravel(), y_out.ravel()), 'nearest').reshape(8000,8000) 
 
 
 def format_date(year, month, day):
