@@ -8,6 +8,10 @@ Every 8th point is forwarded to reduce computational requirements and simplify c
 fraction.
 
 Note: this scipt is inefficient and takes a long time to run, but it gets the job done.
+
+Heather Tweedie  
+May 2024  
+MSci Dissertation
 '''
 
 import pandas as pd

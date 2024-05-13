@@ -1,7 +1,17 @@
+'''
+This script calculates mean melt-pond fractions for the Arctic region for all years for which data are avilable.
+The path to the data and the months to be averaged are entered as command-line arguments.
+
+Heather Tweedie  
+May 2024  
+MSci Dissertation
+'''
+
 import xarray as xr
 import numpy as np
 from os import listdir
 from sys import argv
+
 
 def main(argv):
 
@@ -11,7 +21,7 @@ def main(argv):
         print('     For example: get_monthly_means.py /home/htweedie/melt_ponds/data/OLCI/olci 06 07 08')
         return
 
-        # set months defined in command line
+    # set months defined in command line
     months = argv[2:]
     if len(months) == 0:
         print('Please give at least one month for which the mean will be calculated.')
