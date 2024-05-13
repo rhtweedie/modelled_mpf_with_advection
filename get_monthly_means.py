@@ -1,5 +1,5 @@
 '''
-This script calculates mean melt-pond fractions for the Arctic region for all years for which data are avilable.
+This script calculates mean monthly melt-pond fractions for the Arctic region for all years for which data are avilable.
 The path to the data and the months to be averaged are entered as command-line arguments.
 
 Heather Tweedie  
