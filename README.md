@@ -16,5 +16,3 @@ The main code for carrying out the advection is in `forward_sir.py`, which advec
 
 `archive/` contains code used in the development of the final scripts and work done along the way which was not included in the final report.
 
-Sample figure of predicted melt-pond fraction derived from advected sea-ice roughness:
-![figure](./report_figs/mapped_best_corr.png)
